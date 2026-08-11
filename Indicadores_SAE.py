@@ -2,11 +2,10 @@
 Dados só do Ensino Médio (todos os 3 anos);
 Considerar somente ensino regular;
 Recortes temporais de 2º trimestre (Abril, Maio e Junho) para 2025 e 2026;
-Considerar somente 14 componentes da BNCC:
+Considerar somente 13 componentes da Formação Geral Básica da BNCC para Ensino Médio (sem Ensino Religioso, pois não reprova):
 - "Arte",
 - "Biologia",
 - "Educação Física",
-- "Ensino Religioso",
 - "Filosofia",
 - "Física",
 - "Geografia",
@@ -427,6 +426,9 @@ Isso vale para todos os indicadores relacionados à recuperação paralela.
 '''
 Caminho para acesso aos arquivos de notas dos estudantes:
 SigEduc > Diário de Classe > Relatórios > Resultados Finais > Relatório Acompanhamento de Notas dos Alunos > Ano: 2025 ou 2026 > Gerar Relatório XLSX> 1 download por DIREC
+
+Para as notas, como quer informação do 2º trimestre, estou considerando as notas do 1º e 2º bimestres (para 2025 e 2026).
+Preencher essa informação em julho, que é o período que finaliza o 2º bimestre.
 '''
 
 ######## 2025 ########:
@@ -452,13 +454,84 @@ df_notas_25 = pd.concat(dfs, ignore_index=True)
 df_notas_25_reserva = df_notas_25.copy(deep=True)
 
 
+# Manter somente as séries do Ensino Médio (1ª, 2ª e 3ª séries) e ensino regular
+df_notas_25 = df_notas_25[df_notas_25['SÉRIE'].isin(['1ª SÉRIE', '2ª SÉRIE', '3ª SÉRIE'])]
 
 
+# Manter somente as etapas do Ensino Regular do Ensino Médio
+df_notas_25 = df_notas_25[df_notas_25['ETAPA ENSINO'].isin([
+    'ENSINO MÉDIO POTIGUAR EM TEMPO INTEGRAL',
+    'ENSINO MÉDIO POTIGUAR',
+    ])]
 
 
+# Manter somente os componentes curriculares da BNCC da Formação Geral Básica para Ensino Médio (sem Ensino Religioso, pois não reprova)
+componentes_bnbc = ['Arte',
+                    'Biologia',
+                    'Educação Física',
+                    'Filosofia',
+                    'Física',
+                    'Geografia',
+                    'História',
+                    'Língua Inglesa',
+                    'Língua Portuguesa',
+                    'Língua Espanhola',
+                    'Matemática',
+                    'Química',
+                    'Sociologia']
+
+df_notas_25 = df_notas_25[df_notas_25['COMPONENTE CURRICULAR'].isin(componentes_bnbc)]
 
 
+# Substituir vírgula por ponto para reconhecimento das notas como números:
+colunas_para_converter = [
+    "NOTA 1º BIMESTRE",
+    "NOTA 2º BIMESTRE",
+    "NOTA 3º BIMESTRE",
+    "NOTA 4º BIMESTRE",
+    "MÉDIA ANUAL",
+    "EXAME FINAL",
+    "AVALIAÇÃO ESPECIAL",
+    "MÉDIA FINAL"
+] 
 
+for col in colunas_para_converter:
+    if col in df_notas_25.columns:  # só executa se a coluna estiver no DataFrame
+        # Substitui vírgula por ponto
+        df_notas_25[col] = df_notas_25[col].str.replace(",", ".", regex=False)
+        # Converte para float, erros viram NaN
+        df_notas_25[col] = pd.to_numeric(df_notas_25[col], errors="coerce")
+
+
+# Fazer nota do 1º semestre, fazendo média de 'NOTA 1º BIMESTRE' e 'NOTA 2º BIMESTRE'
+df_notas_25['MEDIA_NOTAS'] = df_notas_25[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].mean(axis=1, skipna=True)
+
+# Quantidade de reprovações e aprovações por estudante:
+# 1. Cria colunas temporárias booleanas (True se a condição for atendida, False se não)
+df_notas_25["aprovado_temp"] = df_notas_25["MEDIA_NOTAS"] >= 6
+df_notas_25["reprovado_temp"] = df_notas_25["MEDIA_NOTAS"] < 6
+
+
+# Agrupa por 'MATRÍCULA ESTUDANTE' e soma as colunas temporárias
+df_resumo_notas_25 = (
+    df_notas_25.groupby("MATRÍCULA ESTUDANTE")[["aprovado_temp", "reprovado_temp"]]
+    .sum()
+    .reset_index()
+)
+
+# Renomeia as colunas
+df_resumo_notas_25.rename(
+    columns={
+        "aprovado_temp": "Componentes_aprovados",
+        "reprovado_temp": "Componentes_reprovados",
+    },
+    inplace=True,
+)
+
+# % de estudantes com ao menos 1 componente abaixo da média:
+percentual_estudantes_1_reprovacao_25 = (df_resumo_notas_25['Componentes_reprovados'] >= 1).sum() / len(df_resumo_notas_25) * 100
+
+print(f"Percentual de estudantes com ao menos 1 componente abaixo da média (2025): {percentual_estudantes_1_reprovacao_25:.2f}%")
 
 
 
@@ -486,93 +559,159 @@ df_notas_26 = pd.concat(dfs, ignore_index=True)
 df_notas_26_reserva = df_notas_26.copy(deep=True)
 
 
+# Manter somente as séries do Ensino Médio (1ª, 2ª e 3ª séries) e ensino regular
+df_notas_26 = df_notas_26[df_notas_26['SÉRIE'].isin(['1ª SÉRIE', '2ª SÉRIE', '3ª SÉRIE'])]
 
 
+# Manter somente as etapas do Ensino Regular do Ensino Médio
+df_notas_26 = df_notas_26[df_notas_26['ETAPA ENSINO'].isin([
+    'ENSINO MÉDIO POTIGUAR EM TEMPO INTEGRAL',
+    'ENSINO MÉDIO POTIGUAR',
+    ])]
+
+
+# Manter somente os componentes curriculares da BNCC da Formação Geral Básica para Ensino Médio (sem Ensino Religioso, pois não reprova)
+componentes_bnbc = ['Arte',
+                    'Biologia',
+                    'Educação Física',
+                    'Filosofia',
+                    'Física',
+                    'Geografia',
+                    'História',
+                    'Língua Inglesa',
+                    'Língua Portuguesa',
+                    'Língua Espanhola',
+                    'Matemática',
+                    'Química',
+                    'Sociologia']
+
+df_notas_26 = df_notas_26[df_notas_26['COMPONENTE CURRICULAR'].isin(componentes_bnbc)]
+
+
+# Substituir vírgula por ponto para reconhecimento das notas como números:
+colunas_para_converter = [
+    "NOTA 1º BIMESTRE",
+    "NOTA 2º BIMESTRE",
+    "NOTA 3º BIMESTRE",
+    "NOTA 4º BIMESTRE",
+    "MÉDIA ANUAL",
+    "EXAME FINAL",
+    "AVALIAÇÃO ESPECIAL",
+    "MÉDIA FINAL"
+] 
+
+for col in colunas_para_converter:
+    if col in df_notas_26.columns:  # só executa se a coluna estiver no DataFrame
+        # Substitui vírgula por ponto
+        df_notas_26[col] = df_notas_26[col].str.replace(",", ".", regex=False)
+        # Converte para float, erros viram NaN
+        df_notas_26[col] = pd.to_numeric(df_notas_26[col], errors="coerce")
+
+
+# Fazer nota do 1º semestre, fazendo média de 'NOTA 1º BIMESTRE' e 'NOTA 2º BIMESTRE'
+df_notas_26['MEDIA_NOTAS'] = df_notas_26[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].mean(axis=1, skipna=True)
+
+# Quantidade de reprovações e aprovações por estudante:
+# 1. Cria colunas temporárias booleanas (True se a condição for atendida, False se não)
+df_notas_26["aprovado_temp"] = df_notas_26["MEDIA_NOTAS"] >= 6
+df_notas_26["reprovado_temp"] = df_notas_26["MEDIA_NOTAS"] < 6
+
+
+# Agrupa por 'MATRÍCULA ESTUDANTE' e soma as colunas temporárias
+df_resumo_notas_26 = (
+    df_notas_26.groupby("MATRÍCULA ESTUDANTE")[["aprovado_temp", "reprovado_temp"]]
+    .sum()
+    .reset_index()
+)
+
+# Renomeia as colunas
+df_resumo_notas_26.rename(
+    columns={
+        "aprovado_temp": "Componentes_aprovados",
+        "reprovado_temp": "Componentes_reprovados",
+    },
+    inplace=True,
+)
+
+
+# % de estudantes com ao menos 1 componente abaixo da média:
+percentual_estudantes_1_reprovacao_26 = (df_resumo_notas_26['Componentes_reprovados'] >= 1).sum() / len(df_resumo_notas_26) * 100
+
+print(f"Percentual de estudantes com ao menos 1 componente abaixo da média (2026): {percentual_estudantes_1_reprovacao_26:.2f}%")
 
 
 ############################################ % estudantes com ao menos 1 componente abaixo da média (aplicando RPP do estado) ####################################################
+'''
+Nesse caso são estudantes com 1 reprovação a mais do que o permitido para RAPP, logo, estudantes com 7 reprovações ou mais.
+'''
+
 ######## 2025 ########:
+# % de estudantes com ao menos 1 componente abaixo da média:
+percentual_estudantes_7_reprovacoes_25 = (df_resumo_notas_25['Componentes_reprovados'] >= 7).sum() / len(df_resumo_notas_25) * 100
 
-
-
-
-
-
-
+print(f"Percentual de estudantes com ao menos 7 componente abaixo da média (2025): {percentual_estudantes_7_reprovacoes_25:.2f}%")
 
 
 ######## 2026 ########:
+# % de estudantes com ao menos 1 componente abaixo da média:
+percentual_estudantes_7_reprovacoes_26 = (df_resumo_notas_26['Componentes_reprovados'] >= 7).sum() / len(df_resumo_notas_26) * 100
 
-
-
-
-
+print(f"Percentual de estudantes com ao menos 7 componente abaixo da média (2026): {percentual_estudantes_7_reprovacoes_26:.2f}%")
 
 
 
 ############################################ % de lançamento de notas no sistema #####################################################
 ######## 2025 ########:
+# Total de notas esperadas (2 por estudante, por serem 2 bimestres: 'NOTA '1º BIMESTRE' e 'NOTA 2º BIMESTRE')
+total_esperado_25 = len(df_notas_25) * 2
 
+# Total de notas lançadas (não nulas)
+total_lancado_25 = df_notas_25[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].notna().sum().sum()
 
+# Percentual de notas lançadas
+percentual_lancado_25 = (total_lancado_25 / total_esperado_25) * 100
 
-
-
-
-
-
-
-
-
-
-
-
+print(f'Percentual de notas lançadas (2025): {percentual_lancado_25:.2f}%')
 
 
 ######## 2026 ########:
+# Total de notas esperadas (2 por estudante, por serem 2 bimestres: 'NOTA '1º BIMESTRE' e 'NOTA 2º BIMESTRE')
+total_esperado_26 = len(df_notas_26) * 2
 
+# Total de notas lançadas (não nulas)
+total_lancado_26 = df_notas_26[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].notna().sum().sum()
 
+# Percentual de notas lançadas
+percentual_lancado_26 = (total_lancado_26 / total_esperado_26) * 100
 
-
-
-
-
-
-
-
-
-
+print(f'Percentual de notas lançadas (2026): {percentual_lancado_26:.2f}%')
 
 
 ############################################ % de estudantes com 100% das notas lançadas #####################################################
 ######## 2025 ########:
+# Verifica, em cada linha, se as duas notas estão preenchidas
+linha_completa_25 = df_notas_25[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].notna().all(axis=1)
 
+# Para cada matrícula, verifica se TODAS as linhas estão completas
+matricula_completa_25 = linha_completa_25.groupby(df_notas_25['MATRÍCULA ESTUDANTE']).all()
 
+# Percentual de matrículas com 100% das notas lançadas
+percentual_matriculas_completas_25 = matricula_completa_25.mean() * 100
 
-
-
-
-
-
-
-
-
-
-
-
+print(f'Percentual de matrículas com 100% das notas lançadas (2025): {percentual_matriculas_completas_25:.2f}%')
 
 
 ######## 2026 ########:
+# Verifica, em cada linha, se as duas notas estão preenchidas
+linha_completa_26 = df_notas_26[['NOTA 1º BIMESTRE', 'NOTA 2º BIMESTRE']].notna().all(axis=1)
 
+# Para cada matrícula, verifica se TODAS as linhas estão completas
+matricula_completa_26 = linha_completa_26.groupby(df_notas_26['MATRÍCULA ESTUDANTE']).all()
 
+# Percentual de matrículas com 100% das notas lançadas
+percentual_matriculas_completas_26 = matricula_completa_26.mean() * 100
 
-
-
-
-
-
-
-
-
+print(f'Percentual de matrículas com 100% das notas lançadas (2026): {percentual_matriculas_completas_26:.2f}%')
 
 
 
